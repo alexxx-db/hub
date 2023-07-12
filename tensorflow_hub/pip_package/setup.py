@@ -27,7 +27,7 @@ with open('tensorflow_hub/version.py') as in_file:
 
 REQUIRED_PACKAGES = [
     'numpy >= 1.12.0',
-    'protobuf >= 3.8.0',  # No less than what ../WORKSPACE uses.
+    'protobuf >= 3.19.6',  # No less than what ../WORKSPACE uses.
 ]
 
 project_name = 'tensorflow-hub'
@@ -46,32 +46,19 @@ if project_name == 'tf-hub-nightly':
 setup(
     name=project_name,  # Automatic: tensorflow_hub, etc. Case insensitive.
     version=version.replace('-', ''),
-    description=('TensorFlow Hub is a library to foster the publication, '
-                 'discovery, and consumption of reusable parts of machine '
-                 'learning models.'),
+    description=(
+        'TensorFlow Hub is a library to foster the publication, '
+        'discovery, and consumption of reusable parts of machine '
+        'learning models.'
+    ),
     long_description='',
     url='https://github.com/tensorflow/hub',
     author='Google LLC',
     author_email='packages@tensorflow.org',
     packages=find_packages(),
     install_requires=REQUIRED_PACKAGES,
-    extras_require={
-        'make_image_classifier': ['keras_preprocessing[image]'],
-        'make_nearest_neighbour_index': [
-            'apache_beam',
-            'annoy',
-        ],
-    },
-    entry_points={
-        'console_scripts': [
-            ('make_image_classifier = '
-             'tensorflow_hub.tools.make_image_classifier.'
-             'make_image_classifier:run_main [make_image_classifier]'),
-            ('make_nearest_neighbour_index = tensorflow_hub.tools.'
-             'make_nearest_neighbour_index.make_nearest_neighbour_index:main '
-             '[make_nearest_neighbour_index]'),
-        ],
-    },
+    extras_require={},
+    entry_points={},
     # PyPI package information.
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -80,10 +67,10 @@ setup(
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3 :: Only',
         'Topic :: Scientific/Engineering',
         'Topic :: Scientific/Engineering :: Mathematics',
@@ -93,6 +80,8 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
     license='Apache 2.0',
-    keywords=('tensorflow machine learning share module subgraph component hub '
-              'embedding retraining transfer'),
+    keywords=(
+        'tensorflow machine learning share module subgraph component hub '
+        'embedding retraining transfer'
+    ),
 )

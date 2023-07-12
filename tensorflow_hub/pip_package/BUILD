@@ -15,13 +15,15 @@
 
 licenses(["notice"])
 
-package(default_visibility = ["//visibility:private"])
+package(
+    default_applicable_licenses = ["//tensorflow_hub:license"],
+    default_visibility = ["//visibility:private"],
+)
 
 sh_binary(
     name = "build_pip_package",
     srcs = ["build_pip_package.sh"],
     data = [
         "//tensorflow_hub",
-        "//tensorflow_hub/tools/make_image_classifier",
     ],
 )

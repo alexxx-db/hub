@@ -44,7 +44,6 @@ py_library(
     visibility = ["//visibility:public"],
     deps = [
         ":feature_column",
-        ":feature_column_v2",
         ":image_util",
         ":keras_layer",
         ":module",
@@ -53,6 +52,7 @@ py_library(
         ":saved_model_module",
         "//tensorflow_hub:expect_tensorflow_installed",
         ":estimator",
+        ":feature_column_v2",
         ":config",
         # Internal dependency.,
         "//tensorflow_hub/tools:empty_package",
@@ -144,6 +144,7 @@ py_test(
         "//tensorflow_hub:expect_numpy_installed",
         "//tensorflow_hub:expect_tensorflow_estimator_installed",
         "//tensorflow_hub:expect_tensorflow_installed",
+        ":expect_tensorflow_hub_includes_feature_column_v2_apis",
     ],
 )
 
@@ -241,10 +242,7 @@ py_test(
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
-        ":saved_model_lib",
-        ":saved_model_module",
         ":tensorflow_hub",
-        ":tf_utils",
         "//tensorflow_hub:expect_tensorflow_installed",
     ],
 )
@@ -468,6 +466,12 @@ py_library(
     name = "expect_tensorflow_hub_includes_estimator_apis",
 )
 
+# We expect TensorFlow Hub to support feature_column_v2 related APIs.
+# This is for internal bookkeeping only and will always be true.
+py_library(
+    name = "expect_tensorflow_hub_includes_feature_column_v2_apis",
+)
+
 # We expect TensorFlow Estimator to already be installed on the system.
 # This is for internal bookkeeping only and will be true by virtue of having TensorFlow installed.
 py_library(
@@ -486,52 +490,11 @@ py_library(
     name = "expect_numpy_installed",
 )
 
-# We expect tensorflow_datasets to already be installed on the system, e.g. via
-# `pip install tensorflow-datasets`
-py_library(
-    name = "expect_tensorflow_datasets_installed",
-)
-
-# We expect absl to already be installed on the system, e.g. via
-# `pip install absl-py`
-py_library(
-    name = "expect_absl_py_installed",
-)
-
-# We expect pandas to already be installed on the system, e.g. via
-# `pip install pandas`
-py_library(
-    name = "expect_pandas_installed",
-)
-
-# We expect sklearn to already be installed on the system, e.g. via
-# `pip install sklearn`
-py_library(
-    name = "expect_sklearn_installed",
-)
-
 # We expect the runtime libraries for generated Python protocol messages
 # to already be installed on the system, e.g. via
 # `pip install protobuf`
 py_library(
     name = "expect_protobuf_installed",
-)
-
-# We expect apache_beam to already be installed on the system, e.g. via
-# `pip install apache_beam`
-py_library(
-    name = "expect_apache_beam_installed",
-)
-
-# We expect annoy to already be installed on the system, e.g. via
-# `pip install annoy`
-py_library(
-    name = "expect_annoy_installed",
-)
-
-# An expectation for resources import
-py_library(
-    name = "expect_resources_installed",
 )
 
 py_library(
