@@ -17,10 +17,16 @@
 import logging
 import os
 import numpy as np
-from tensorflow import estimator as tf_estimator
 import tensorflow.compat.v2 as tf
 import tensorflow_hub as hub
 
+# pylint: disable=g-import-not-at-top
+# Use Keras 2.
+version_fn = getattr(tf.keras, "version", None)
+if version_fn and version_fn().startswith("3."):
+  import tf_keras as keras
+else:
+  keras = tf.keras
 
 # pylint: disable=g-direct-tensorflow-import
 from tensorflow.python.feature_column import feature_column_v2
@@ -101,7 +107,7 @@ class TextEmbeddingColumnTest(tf.test.TestCase):
         hub.text_embedding_column_v2("text_a", self.model, trainable=False),
         hub.text_embedding_column_v2("text_b", self.model, trainable=False),
     ]
-    feature_layer = tf.keras.layers.DenseFeatures(feature_columns)
+    feature_layer = keras.layers.DenseFeatures(feature_columns)
     feature_layer_out = feature_layer(features)
     self.assertAllEqual(feature_layer_out,
                         [[1, 2, 3, 4, 1, 2, 3, 4], [5, 5, 5, 5, 0, 0, 0, 0]])
@@ -115,12 +121,13 @@ class TextEmbeddingColumnTest(tf.test.TestCase):
         hub.text_embedding_column_v2("text", self.model, trainable=True),
     ]
     input_features = dict(
-        text=tf.keras.layers.Input(name="text", shape=[None], dtype=tf.string))
-    dense_features = tf.keras.layers.DenseFeatures(feature_columns)
+        text=keras.layers.Input(name="text", shape=[None], dtype=tf.string)
+    )
+    dense_features = keras.layers.DenseFeatures(feature_columns)
     x = dense_features(input_features)
-    x = tf.keras.layers.Dense(16, activation="relu")(x)
-    logits = tf.keras.layers.Dense(1, activation="linear")(x)
-    model = tf.keras.Model(inputs=input_features, outputs=logits)
+    x = keras.layers.Dense(16, activation="relu")(x)
+    logits = keras.layers.Dense(1, activation="linear")(x)
+    model = keras.Model(inputs=input_features, outputs=logits)
     model.compile(
         optimizer="rmsprop", loss="binary_crossentropy", metrics=["accuracy"])
     model.fit(x=features, y=label, epochs=10)
@@ -136,13 +143,13 @@ class TextEmbeddingColumnTest(tf.test.TestCase):
     ]
     # Build the first model.
     input_features = dict(
-        text_1=tf.keras.layers.Input(
-            name="text_1", shape=[None], dtype=tf.string))
-    dense_features = tf.keras.layers.DenseFeatures(feature_columns)
+        text_1=keras.layers.Input(name="text_1", shape=[None], dtype=tf.string)
+    )
+    dense_features = keras.layers.DenseFeatures(feature_columns)
     x = dense_features(input_features)
-    x = tf.keras.layers.Dense(16, activation="relu")(x)
-    logits = tf.keras.layers.Dense(1, activation="linear")(x)
-    model_1 = tf.keras.Model(inputs=input_features, outputs=logits)
+    x = keras.layers.Dense(16, activation="relu")(x)
+    logits = keras.layers.Dense(1, activation="linear")(x)
+    model_1 = keras.Model(inputs=input_features, outputs=logits)
     model_1.compile(
         optimizer="rmsprop", loss="binary_crossentropy", metrics=["accuracy"])
     model_1.fit(x=features, y=label, epochs=10)
@@ -156,13 +163,13 @@ class TextEmbeddingColumnTest(tf.test.TestCase):
         hub.text_embedding_column_v2("text_2", self.model, trainable=True),
     ]
     input_features = dict(
-        text_2=tf.keras.layers.Input(
-            name="text_2", shape=[None], dtype=tf.string))
-    dense_features = tf.keras.layers.DenseFeatures(feature_columns)
+        text_2=keras.layers.Input(name="text_2", shape=[None], dtype=tf.string)
+    )
+    dense_features = keras.layers.DenseFeatures(feature_columns)
     x = dense_features(input_features)
-    x = tf.keras.layers.Dense(16, activation="relu")(x)
-    logits = tf.keras.layers.Dense(1, activation="linear")(x)
-    model_2 = tf.keras.Model(inputs=input_features, outputs=logits)
+    x = keras.layers.Dense(16, activation="relu")(x)
+    logits = keras.layers.Dense(1, activation="linear")(x)
+    model_2 = keras.Model(inputs=input_features, outputs=logits)
     model_2.compile(
         optimizer="rmsprop", loss="binary_crossentropy", metrics=["accuracy"])
 
@@ -171,59 +178,6 @@ class TextEmbeddingColumnTest(tf.test.TestCase):
     with self.assertRaisesRegexp(AssertionError,
                                  ".*not bound to checkpointed values.*"):
       model_2.load_weights(checkpoint_path).assert_consumed()
-
-  def testWorksWithTF2DnnClassifier(self):
-    self.skipTest("b/154115879 - needs more investigation for timeout.")
-    comment_embedding_column = hub.text_embedding_column_v2(
-        "comment", self.model, trainable=False)
-    upvotes = tf.feature_column.numeric_column("upvotes")
-
-    feature_columns = [comment_embedding_column, upvotes]
-    estimator = tf_estimator.DNNClassifier(
-        hidden_units=[10],
-        feature_columns=feature_columns,
-        model_dir=self.get_temp_dir())
-
-    # This only tests that estimator apis are working with the feature
-    # column without throwing exceptions.
-    def input_fn():
-      features = {
-          "comment": np.array([
-              ["the quick brown fox"],
-              ["spam spam spam"],
-          ]),
-          "upvotes": np.array([
-              [20],
-              [1],
-          ]),
-      }
-      labels = np.array([[1], [0]])
-      return features, labels
-    estimator.train(input_fn, max_steps=1)
-    estimator.evaluate(input_fn, steps=1)
-    estimator.predict(input_fn)
-
-  def testWorksWithDNNEstimatorAndDataset(self):
-    self.skipTest("b/154115879 - needs more investigation for timeout.")
-    description_embeddings = hub.text_embedding_column_v2(
-        "descriptions", self.model_returning_dicts, output_key="outputs")
-
-    def input_fn():
-      features = dict(descriptions=tf.constant([["sentence"]]))
-      labels = tf.constant([[1]])
-      dataset = tf.data.Dataset.from_tensor_slices((features, labels))
-
-      data_batches = dataset.repeat().take(30).batch(5)
-      return data_batches
-
-    estimator = tf_estimator.DNNEstimator(
-        model_dir=os.path.join(self.get_temp_dir(), "estimator_export"),
-        hidden_units=[10],
-        head=tf_estimator.BinaryClassHead(),
-        feature_columns=[description_embeddings])
-
-    estimator.train(input_fn=input_fn, max_steps=1)
-
 
 if __name__ == "__main__":
   # This test is only supported in TF2 mode and only in TensorFlow version that

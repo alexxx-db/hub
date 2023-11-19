@@ -17,10 +17,16 @@
 import os
 import unittest
 
-import numpy as np
 import tensorflow as tf
-from tensorflow.compat.v1 import estimator as tf_estimator
 import tensorflow_hub as hub
+
+# pylint: disable=g-import-not-at-top
+# Use Keras 2.
+version_fn = getattr(tf.keras, "version", None)
+if version_fn and version_fn().startswith("3."):
+  import tf_keras as keras
+else:
+  keras = tf.keras
 
 # pylint: disable=g-direct-tensorflow-import
 from tensorflow.python.feature_column import feature_column_v2
@@ -132,7 +138,7 @@ class TextEmbeddingColumnTest(tf.test.TestCase):
     with tf.Graph().as_default():
       # We want to test with dense_features_v2.DenseFeatures. This symbol was
       # added in https://github.com/tensorflow/tensorflow/commit/64586f18724f737393071125a91b19adf013cf8a.
-      feature_layer = tf.compat.v2.keras.layers.DenseFeatures(feature_columns)
+      feature_layer = keras.layers.DenseFeatures(feature_columns)
       feature_layer_out = feature_layer(features)
       with tf.compat.v1.train.MonitoredSession() as sess:
         output = sess.run(feature_layer_out)
@@ -152,7 +158,7 @@ class TextEmbeddingColumnTest(tf.test.TestCase):
     with tf.Graph().as_default():
       # We want to test with dense_features_v2.DenseFeatures. This symbol was
       # added in https://github.com/tensorflow/tensorflow/commit/64586f18724f737393071125a91b19adf013cf8a.
-      feature_layer = tf.compat.v2.keras.layers.DenseFeatures(feature_columns)
+      feature_layer = keras.layers.DenseFeatures(feature_columns)
       feature_layer_out_1 = feature_layer(features)
       feature_layer_out_2 = feature_layer(features)
 
@@ -171,36 +177,6 @@ class TextEmbeddingColumnTest(tf.test.TestCase):
         self.assertAllEqual(before_update_1, [[1, 2, 3, 4],
                                               [5, 5, 5, 5]])
         self.assertAllEqual(after_update_1, after_update_2)
-
-  def testWorksWithCannedEstimator(self):
-    comment_embedding_column = hub.text_embedding_column(
-        "comment", self.spec, trainable=False)
-    upvotes = tf.compat.v1.feature_column.numeric_column("upvotes")
-
-    feature_columns = [comment_embedding_column, upvotes]
-    estimator = tf_estimator.DNNClassifier(
-        hidden_units=[10],
-        feature_columns=feature_columns,
-        model_dir=self.get_temp_dir())
-
-    # This only tests that estimator apis are working with the feature
-    # column without throwing exceptions.
-    features = {
-        "comment": np.array([
-            ["the quick brown fox"],
-            ["spam spam spam"],
-        ]),
-        "upvotes": np.array([
-            [20],
-            [1],
-        ]),
-    }
-    labels = np.array([[1], [0]])
-    numpy_input_fn = tf_estimator.inputs.numpy_input_fn
-    input_fn = numpy_input_fn(features, labels, shuffle=True)
-    estimator.train(input_fn, max_steps=1)
-    estimator.evaluate(input_fn, steps=1)
-    estimator.predict(input_fn)
 
   def testTrainableEmbeddingColumn(self):
     feature_columns = [
@@ -343,7 +319,7 @@ class ImageEmbeddingColumnTest(tf.test.TestCase):
     with tf.Graph().as_default():
       # We want to test with dense_features_v2.DenseFeatures. This symbol was
       # added in https://github.com/tensorflow/tensorflow/commit/64586f18724f737393071125a91b19adf013cf8a.
-      feature_layer = tf.compat.v2.keras.layers.DenseFeatures(feature_columns)
+      feature_layer = keras.layers.DenseFeatures(feature_columns)
       feature_layer_out = feature_layer(features)
       with tf.compat.v1.train.MonitoredSession() as sess:
         output = sess.run(feature_layer_out)
@@ -365,7 +341,7 @@ class ImageEmbeddingColumnTest(tf.test.TestCase):
     with tf.Graph().as_default():
       # We want to test with dense_features_v2.DenseFeatures. This symbol was
       # added in https://github.com/tensorflow/tensorflow/commit/64586f18724f737393071125a91b19adf013cf8a.
-      feature_layer = tf.compat.v2.keras.layers.DenseFeatures(feature_columns)
+      feature_layer = keras.layers.DenseFeatures(feature_columns)
       feature_layer_out_1 = feature_layer(features)
       feature_layer_out_2 = feature_layer(features)
 
@@ -374,33 +350,6 @@ class ImageEmbeddingColumnTest(tf.test.TestCase):
         output_2 = sess.run(feature_layer_out_2)
 
         self.assertAllClose(output_1, output_2)
-
-  def testWorksWithCannedEstimator(self):
-    image_column = hub.image_embedding_column("image", self.spec)
-    other_column = tf.compat.v1.feature_column.numeric_column("number")
-
-    feature_columns = [image_column, other_column]
-    estimator = tf_estimator.DNNClassifier(
-        hidden_units=[10],
-        feature_columns=feature_columns,
-        model_dir=self.get_temp_dir())
-
-    # This only tests that estimator apis are working with the feature
-    # column without throwing exceptions.
-    features = {
-        "image":
-            np.array([[[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]],
-                      [[[0.7, 0.7, 0.7], [0.1, 0.2, 0.3]]]],
-                     dtype=np.float32),
-        "number":
-            np.array([[20], [1]]),
-    }
-    labels = np.array([[1], [0]])
-    numpy_input_fn = tf_estimator.inputs.numpy_input_fn
-    input_fn = numpy_input_fn(features, labels, shuffle=True)
-    estimator.train(input_fn, max_steps=1)
-    estimator.evaluate(input_fn, steps=1)
-    estimator.predict(input_fn)
 
   def testConfig(self):
     module_path = os.path.join(self.get_temp_dir(), "module")

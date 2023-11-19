@@ -20,9 +20,17 @@ import os
 from absl.testing import parameterized
 import numpy as np
 import tensorflow as tf
-from tensorflow import estimator as tf_estimator
-from tensorflow.compat.v1 import estimator as tf_compat_v1_estimator
 import tensorflow_hub as hub
+
+# pylint: disable=g-import-not-at-top
+# Use Keras 2.
+version_fn = getattr(tf.keras, "version", None)
+if version_fn and version_fn().startswith("3."):
+  import tf_keras  # pylint: disable=unused-import
+  from tf_keras.api._v2 import keras as tf_keras_v2
+else:
+  tf_keras = tf.keras  # Keras 2
+  tf_keras_v2 = tf.compat.v2.keras
 
 # NOTE: A Hub-style SavedModel can either be constructed manually, or by
 # relying on tf.saved_model.save(keras_model, ...) to put in the expected
@@ -46,19 +54,21 @@ def _json_cycle(x):
 
 def _save_half_plus_one_model(export_dir, save_from_keras=False):
   """Writes Hub-style SavedModel to compute y = wx + 1, with w trainable."""
-  inp = tf.keras.layers.Input(shape=(1,), dtype=tf.float32)
-  times_w = tf.keras.layers.Dense(
+  inp = tf_keras_v2.layers.Input(shape=(1,), dtype=tf.float32)
+  times_w = tf_keras_v2.layers.Dense(
       units=1,
-      kernel_initializer=tf.keras.initializers.Constant([[0.5]]),
-      kernel_regularizer=tf.keras.regularizers.l2(0.01),
-      use_bias=False)
-  plus_1 = tf.keras.layers.Dense(
+      kernel_initializer=tf_keras_v2.initializers.Constant([[0.5]]),
+      kernel_regularizer=tf_keras_v2.regularizers.l2(0.01),
+      use_bias=False,
+  )
+  plus_1 = tf_keras_v2.layers.Dense(
       units=1,
-      kernel_initializer=tf.keras.initializers.Constant([[1.0]]),
-      bias_initializer=tf.keras.initializers.Constant([1.0]),
-      trainable=False)
+      kernel_initializer=tf_keras_v2.initializers.Constant([[1.0]]),
+      bias_initializer=tf_keras_v2.initializers.Constant([1.0]),
+      trainable=False,
+  )
   outp = plus_1(times_w(inp))
-  model = tf.keras.Model(inp, outp)
+  model = tf_keras_v2.Model(inp, outp)
 
   if save_from_keras:
     tf.saved_model.save(model, export_dir)
@@ -86,18 +96,20 @@ def _save_half_plus_one_hub_module_v1(path):
 
   def half_plus_one():
     x = tf.compat.v1.placeholder(shape=(None, 1), dtype=tf.float32)
-    # Use TF1 native tf.compat.v1.layers instead of tf.keras.layers as they
+    # Use TF1 native tf_keras_v2.layers instead of tf_keras_v2.layers as they
     # correctly update TF collections, such as REGULARIZATION_LOSS.
-    times_w = tf.compat.v1.layers.Dense(
+    times_w = tf_keras_v2.layers.Dense(
         units=1,
-        kernel_initializer=tf.keras.initializers.Constant([[0.5]]),
-        kernel_regularizer=tf.keras.regularizers.l2(0.01),
-        use_bias=False)
-    plus_1 = tf.compat.v1.layers.Dense(
+        kernel_initializer=tf_keras_v2.initializers.Constant([[0.5]]),
+        kernel_regularizer=tf_keras_v2.regularizers.l2(0.01),
+        use_bias=False,
+    )
+    plus_1 = tf_keras_v2.layers.Dense(
         units=1,
-        kernel_initializer=tf.keras.initializers.Constant([[1.0]]),
-        bias_initializer=tf.keras.initializers.Constant([1.0]),
-        trainable=False)
+        kernel_initializer=tf_keras_v2.initializers.Constant([[1.0]]),
+        bias_initializer=tf_keras_v2.initializers.Constant([1.0]),
+        trainable=False,
+    )
     y = plus_1(times_w(x))
     hub.add_signature(inputs=x, outputs=y)
 
@@ -108,20 +120,21 @@ def _save_half_plus_one_hub_module_v1(path):
 def _save_2d_text_embedding(export_dir, save_from_keras=False):
   """Writes SavedModel to compute y = length(text)*w, with w trainable."""
 
-  class StringLengthLayer(tf.keras.layers.Layer):
+  class StringLengthLayer(tf_keras_v2.layers.Layer):
 
     def call(self, inputs):
       return tf.strings.length(inputs)
 
-  inp = tf.keras.layers.Input(shape=(1,), dtype=tf.string)
+  inp = tf_keras_v2.layers.Input(shape=(1,), dtype=tf.string)
   text_length = StringLengthLayer()
-  times_w = tf.keras.layers.Dense(
+  times_w = tf_keras_v2.layers.Dense(
       units=2,
-      kernel_initializer=tf.keras.initializers.Constant([0.1, 0.3]),
-      kernel_regularizer=tf.keras.regularizers.l2(0.01),
-      use_bias=False)
+      kernel_initializer=tf_keras_v2.initializers.Constant([0.1, 0.3]),
+      kernel_regularizer=tf_keras_v2.regularizers.l2(0.01),
+      use_bias=False,
+  )
   outp = times_w(text_length(inp))
-  model = tf.keras.Model(inp, outp)
+  model = tf_keras_v2.Model(inp, outp)
 
   if save_from_keras:
     tf.saved_model.save(model, export_dir)
@@ -156,10 +169,10 @@ def _tensors_names_set(tensor_sequence):
 
 def _save_batch_norm_model(export_dir, save_from_keras=False):
   """Writes a Hub-style SavedModel with a batch norm layer."""
-  inp = tf.keras.layers.Input(shape=(1,), dtype=tf.float32)
-  bn = tf.keras.layers.BatchNormalization(momentum=0.8)
+  inp = tf_keras_v2.layers.Input(shape=(1,), dtype=tf.float32)
+  bn = tf_keras_v2.layers.BatchNormalization(momentum=0.8)
   outp = bn(inp)
-  model = tf.keras.Model(inp, outp)
+  model = tf_keras_v2.Model(inp, outp)
 
   if save_from_keras:
     tf.saved_model.save(model, export_dir)
@@ -223,9 +236,9 @@ def _save_model_with_custom_attributes(export_dir,
   # Calling the module parses an integer.
   f = lambda a: tf.strings.to_number(a, tf.int64)
   if save_from_keras:
-    inp = tf.keras.layers.Input(shape=(1,), dtype=tf.string)
-    outp = tf.keras.layers.Lambda(f)(inp)
-    model = tf.keras.Model(inp, outp)
+    inp = tf_keras_v2.layers.Input(shape=(1,), dtype=tf.string)
+    outp = tf_keras_v2.layers.Lambda(f)(inp)
+    model = tf_keras_v2.Model(inp, outp)
   else:
     model = tf.train.Checkpoint()
     model.__call__ = tf.function(
@@ -382,10 +395,10 @@ class KerasTest(tf.test.TestCase, parameterized.TestCase):
     _dispatch_model_format(model_format, _save_half_plus_one_model,
                            _save_half_plus_one_hub_module_v1, export_dir)
     # Import the half-plus-one model into a consumer model.
-    inp = tf.keras.layers.Input(shape=(1,), dtype=tf.float32)
+    inp = tf_keras_v2.layers.Input(shape=(1,), dtype=tf.float32)
     imported = hub.KerasLayer(export_dir, trainable=True)
     outp = imported(inp)
-    model = tf.keras.Model(inp, outp)
+    model = tf_keras_v2.Model(inp, outp)
     # The consumer model computes y = x/2 + 1 as expected.
     self.assertAllEqual(
         model(np.array([[0.], [8.], [10.], [12.]], dtype=np.float32)),
@@ -403,7 +416,10 @@ class KerasTest(tf.test.TestCase, parameterized.TestCase):
     # Retrain on y = x/2 + 6 for x near 10.
     # (Console output should show loss below 0.2.)
     model.compile(
-        tf.keras.optimizers.SGD(0.002), "mean_squared_error", run_eagerly=True)
+        tf_keras_v2.optimizers.SGD(0.002),
+        "mean_squared_error",
+        run_eagerly=True,
+    )
     x = [[9.], [10.], [11.]] * 10
     y = [[xi[0] / 2. + 6] for xi in x]
     model.fit(np.array(x), np.array(y), batch_size=len(x), epochs=10, verbose=2)
@@ -427,10 +443,10 @@ class KerasTest(tf.test.TestCase, parameterized.TestCase):
     _dispatch_model_format(model_format, _save_half_plus_one_model,
                            _save_half_plus_one_hub_module_v1, export_dir)
     # Import the half-plus-one model into a consumer model.
-    inp = tf.keras.layers.Input(shape=(1,), dtype=tf.float32)
+    inp = tf_keras_v2.layers.Input(shape=(1,), dtype=tf.float32)
     imported = hub.KerasLayer(export_dir, trainable=False)
     outp = imported(inp)
-    model = tf.keras.Model(inp, outp)
+    model = tf_keras_v2.Model(inp, outp)
     # When untrainable, the layer does not contribute regularization losses.
     self.assertAllEqual(model.losses, np.array([0.], dtype=np.float32))
     # When trainable (even set after the fact), the layer forwards its losses.
@@ -447,17 +463,18 @@ class KerasTest(tf.test.TestCase, parameterized.TestCase):
     """Tests imported batch norm with trainable=True."""
     export_dir = os.path.join(self.get_temp_dir(), "batch-norm")
     _save_batch_norm_model(export_dir, save_from_keras=save_from_keras)
-    inp = tf.keras.layers.Input(shape=(1,), dtype=tf.float32)
+    inp = tf_keras_v2.layers.Input(shape=(1,), dtype=tf.float32)
     imported = hub.KerasLayer(export_dir, trainable=True)
     var_beta, var_gamma, var_mean, var_variance = _get_batch_norm_vars(imported)
     outp = imported(inp)
-    model = tf.keras.Model(inp, outp)
+    model = tf_keras_v2.Model(inp, outp)
     # Retrain the imported batch norm layer on a fixed batch of inputs,
     # which has mean 12.0 and some variance of a less obvious value.
     # The module learns scale and offset parameters that achieve the
     # mapping x --> 2*x for the observed mean and variance.
     model.compile(
-        tf.keras.optimizers.SGD(0.1), "mean_squared_error", run_eagerly=True)
+        tf_keras_v2.optimizers.SGD(0.1), "mean_squared_error", run_eagerly=True
+    )
     x = [[11.], [12.], [13.]]
     y = [[2 * xi[0]] for xi in x]
     model.fit(np.array(x), np.array(y), batch_size=len(x), epochs=100)
@@ -480,15 +497,16 @@ class KerasTest(tf.test.TestCase, parameterized.TestCase):
     """Tests imported batch norm with trainable=False."""
     export_dir = os.path.join(self.get_temp_dir(), "batch-norm")
     _save_batch_norm_model(export_dir, save_from_keras=save_from_keras)
-    inp = tf.keras.layers.Input(shape=(1,), dtype=tf.float32)
+    inp = tf_keras_v2.layers.Input(shape=(1,), dtype=tf.float32)
     imported = hub.KerasLayer(export_dir, trainable=False)
     var_beta, var_gamma, var_mean, var_variance = _get_batch_norm_vars(imported)
-    dense = tf.keras.layers.Dense(
+    dense = tf_keras_v2.layers.Dense(
         units=1,
-        kernel_initializer=tf.keras.initializers.Constant([[1.5]]),
-        use_bias=False)
+        kernel_initializer=tf_keras_v2.initializers.Constant([[1.5]]),
+        use_bias=False,
+    )
     outp = dense(imported(inp))
-    model = tf.keras.Model(inp, outp)
+    model = tf_keras_v2.Model(inp, outp)
     # Training the model to x --> 2*x leaves the batch norm layer entirely
     # unchanged (both trained beta&gamma and aggregated mean&variance).
     self.assertAllClose(var_beta.numpy(), np.array([0.0]))
@@ -496,7 +514,8 @@ class KerasTest(tf.test.TestCase, parameterized.TestCase):
     self.assertAllClose(var_mean.numpy(), np.array([0.0]))
     self.assertAllClose(var_variance.numpy(), np.array([1.0]))
     model.compile(
-        tf.keras.optimizers.SGD(0.1), "mean_squared_error", run_eagerly=True)
+        tf_keras_v2.optimizers.SGD(0.1), "mean_squared_error", run_eagerly=True
+    )
     x = [[1.], [2.], [3.]]
     y = [[2 * xi[0]] for xi in x]
     model.fit(np.array(x), np.array(y), batch_size=len(x), epochs=20)
@@ -531,8 +550,8 @@ class KerasTest(tf.test.TestCase, parameterized.TestCase):
     export_dir = os.path.join(self.get_temp_dir(), "with-dicts")
     _save_model_with_dict_input_output(export_dir)
     # Build a Model from it using Keras' "functional" API.
-    x_in = tf.keras.layers.Input(shape=(1,), dtype=tf.float32)
-    y_in = tf.keras.layers.Input(shape=(1,), dtype=tf.float32)
+    x_in = tf_keras_v2.layers.Input(shape=(1,), dtype=tf.float32)
+    y_in = tf_keras_v2.layers.Input(shape=(1,), dtype=tf.float32)
     dict_in = dict(x=x_in, y=y_in)
     kwargs = dict(arguments=dict(return_dict=True))  # For the SavedModel.
     if pass_output_shapes:
@@ -544,8 +563,8 @@ class KerasTest(tf.test.TestCase, parameterized.TestCase):
     dict_out = imported(dict_in)
     delta_out = dict_out["delta"]
     sigma_out = dict_out["sigma"]
-    concat_out = tf.keras.layers.concatenate([delta_out, sigma_out])
-    model = tf.keras.Model(dict_in, [delta_out, sigma_out, concat_out])
+    concat_out = tf_keras_v2.layers.concatenate([delta_out, sigma_out])
+    model = tf_keras_v2.Model(dict_in, [delta_out, sigma_out, concat_out])
     # Test the model.
     x = np.array([[11.], [22.], [33.]], dtype=np.float32)
     y = np.array([[1.], [2.], [3.]], dtype=np.float32)
@@ -573,10 +592,10 @@ class KerasTest(tf.test.TestCase, parameterized.TestCase):
     kwargs = {}
     if pass_output_shapes:
       kwargs["output_shape"] = [[1], [2, 2], [3, 3, 3]]
-    inp = tf.keras.layers.Input(shape=(1,), dtype=tf.float32)
+    inp = tf_keras_v2.layers.Input(shape=(1,), dtype=tf.float32)
     imported = hub.KerasLayer(export_dir, **kwargs)
     outp = imported(inp)
-    model = tf.keras.Model(inp, outp)
+    model = tf_keras_v2.Model(inp, outp)
 
     x = np.array([[1.], [10.]], dtype=np.float32)
     outputs = model(x)
@@ -639,21 +658,22 @@ class KerasTest(tf.test.TestCase, parameterized.TestCase):
     # model is used in this test.
     _save_2d_text_embedding(export_dir1, save_from_keras=save_from_keras)
     try:
-      tf.compat.v2.keras.mixed_precision.set_global_policy("mixed_float16")
-      inp = tf.keras.layers.Input(shape=(1,), dtype=tf.string)
+      tf_keras_v2.mixed_precision.set_global_policy("mixed_float16")
+      inp = tf_keras_v2.layers.Input(shape=(1,), dtype=tf.string)
       imported = hub.KerasLayer(export_dir1, trainable=True)
       outp = imported(inp)
-      model = tf.keras.Model(inp, outp)
+      model = tf_keras_v2.Model(inp, outp)
       model.compile(
-          tf.keras.optimizers.SGD(0.002, momentum=0.001),
+          tf_keras_v2.optimizers.SGD(0.002, momentum=0.001),
           "mean_squared_error",
-          run_eagerly=True)
+          run_eagerly=True,
+      )
       x = [["a"], ["aa"], ["aaa"]]
       y = [len(xi) for xi in x]
       model.fit(x, y)
       tf.saved_model.save(model, export_dir2)
     finally:
-      tf.compat.v2.keras.mixed_precision.set_global_policy("float32")
+      tf_keras_v2.mixed_precision.set_global_policy("float32")
 
   def testComputeOutputShapeNonEager(self):
     export_dir = os.path.join(self.get_temp_dir(), "half-plus-one")
@@ -701,297 +721,16 @@ class KerasTest(tf.test.TestCase, parameterized.TestCase):
     export_dir = os.path.join(self.get_temp_dir(), "half-plus-one")
     _save_half_plus_one_model(export_dir, save_from_keras=save_from_keras)
 
-    model = tf.keras.Sequential([hub.KerasLayer(export_dir)])
+    model = tf_keras_v2.Sequential([hub.KerasLayer(export_dir)])
     in_value = np.array([[10.]], dtype=np.float32)
     result = model(in_value).numpy()
 
     json_string = model.to_json()
-    new_model = tf.keras.models.model_from_json(
-        json_string, custom_objects={"KerasLayer": hub.KerasLayer})
+    new_model = tf_keras_v2.models.model_from_json(
+        json_string, custom_objects={"KerasLayer": hub.KerasLayer}
+    )
     new_result = new_model(in_value).numpy()
     self.assertEqual(result, new_result)
-
-
-class EstimatorTest(tf.test.TestCase, parameterized.TestCase):
-  """Tests use of KerasLayer in an Estimator's model_fn."""
-
-  def _half_plus_one_model_fn(self, features, labels, mode, params):
-    inp = features  # This estimator takes a single feature, not a dict.
-    imported = hub.KerasLayer(
-        params["hub_module"], trainable=params["hub_trainable"])
-    model = tf.keras.Sequential([imported])
-    outp = model(inp, training=(mode == tf_estimator.ModeKeys.TRAIN))
-    # https://www.tensorflow.org/alpha/guide/migration_guide#using_a_custom_model_fn
-    # recommends model.get_losses_for() instead of model.losses.
-    model_losses = model.get_losses_for(None) + model.get_losses_for(inp)
-    regularization_loss = tf.add_n(model_losses or [0.0])
-    predictions = dict(output=outp, regularization_loss=regularization_loss)
-
-    total_loss = None
-    if mode in (tf_estimator.ModeKeys.TRAIN, tf_estimator.ModeKeys.EVAL):
-      total_loss = tf.add(
-          tf.compat.v1.losses.mean_squared_error(labels, outp),
-          regularization_loss)
-
-    train_op = None
-    if mode == tf_estimator.ModeKeys.TRAIN:
-      optimizer = tf.compat.v1.train.GradientDescentOptimizer(0.002)
-      train_op = optimizer.minimize(
-          total_loss,
-          var_list=model.trainable_variables,
-          global_step=tf.compat.v1.train.get_or_create_global_step())
-
-    return tf_estimator.EstimatorSpec(
-        mode=mode, predictions=predictions, loss=total_loss, train_op=train_op)
-
-  @parameterized.parameters(("TF2SavedModel_SavedRaw"),
-                            ("TF2SavedModel_SavedFromKeras"))
-  def testHalfPlusOneRetraining(self, model_format):
-    export_dir = os.path.join(self.get_temp_dir(), "half-plus-one")
-    _dispatch_model_format(model_format, _save_half_plus_one_model,
-                           _save_half_plus_one_hub_module_v1, export_dir)
-    estimator = tf_estimator.Estimator(
-        model_fn=self._half_plus_one_model_fn,
-        params=dict(hub_module=export_dir, hub_trainable=True))
-
-    # The consumer model computes y = x/2 + 1 as expected.
-    predictions = next(
-        estimator.predict(
-            tf_compat_v1_estimator.inputs.numpy_input_fn(
-                np.array([[0.], [8.], [10.], [12.]], dtype=np.float32),
-                shuffle=False),
-            yield_single_examples=False))
-    self.assertAllEqual(predictions["output"],
-                        np.array([[1.], [5.], [6.], [7.]], dtype=np.float32))
-    self.assertAllEqual(predictions["regularization_loss"],
-                        np.array(0.0025, dtype=np.float32))
-
-    # Retrain on y = x/2 + 6 for x near 10.
-    # (Console output should show loss below 0.2.)
-    x = [[9.], [10.], [11.]] * 10
-    y = [[xi[0] / 2. + 6] for xi in x]
-    estimator.train(
-        tf_compat_v1_estimator.inputs.numpy_input_fn(
-            np.array(x, dtype=np.float32),
-            np.array(y, dtype=np.float32),
-            batch_size=len(x),
-            num_epochs=None,
-            shuffle=False),
-        steps=10)
-    # The bias is non-trainable and has to stay at 1.0.
-    # To compensate, the kernel weight will grow to almost 1.0.
-    predictions = next(
-        estimator.predict(
-            tf_compat_v1_estimator.inputs.numpy_input_fn(
-                np.array([[0.], [10.]], dtype=np.float32), shuffle=False),
-            yield_single_examples=False))
-    self.assertAllEqual(predictions["output"][0],
-                        np.array([1.], dtype=np.float32))
-    self.assertAllClose(
-        predictions["output"][1],
-        np.array([11.], dtype=np.float32),
-        atol=0.0,
-        rtol=0.03)
-    self.assertAllClose(
-        predictions["regularization_loss"],
-        np.array(0.01, dtype=np.float32),
-        atol=0.0,
-        rtol=0.06)
-
-  @parameterized.parameters(("TF2SavedModel_SavedRaw"),
-                            ("TF2SavedModel_SavedFromKeras"), ("TF1HubModule"))
-  def testHalfPlusOneFrozen(self, model_format):
-    export_dir = os.path.join(self.get_temp_dir(), "half-plus-one")
-    _dispatch_model_format(model_format, _save_half_plus_one_model,
-                           _save_half_plus_one_hub_module_v1, export_dir)
-    estimator = tf_estimator.Estimator(
-        model_fn=self._half_plus_one_model_fn,
-        params=dict(hub_module=export_dir, hub_trainable=False))
-
-    # The consumer model computes y = x/2 + 1 as expected.
-    predictions = next(
-        estimator.predict(
-            tf_compat_v1_estimator.inputs.numpy_input_fn(
-                np.array([[0.], [8.], [10.], [12.]], dtype=np.float32),
-                shuffle=False),
-            yield_single_examples=False))
-    self.assertAllEqual(predictions["output"],
-                        np.array([[1.], [5.], [6.], [7.]], dtype=np.float32))
-    self.assertAllEqual(predictions["regularization_loss"],
-                        np.array(0.0, dtype=np.float32))
-
-  def _batch_norm_model_fn(self, features, labels, mode, params):
-    inp = features  # This estimator takes a single feature, not a dict.
-    imported = hub.KerasLayer(params["hub_module"])
-    var_beta, var_gamma, var_mean, var_variance = _get_batch_norm_vars(imported)
-    if params["train_batch_norm"]:
-      imported.trainable = True
-      model = tf.keras.Sequential([imported])
-    else:
-      imported.trainable = False
-      # When not training the batch norm layer, we train this instead:
-      dense = tf.keras.layers.Dense(
-          units=1,
-          kernel_initializer=tf.keras.initializers.Constant([[1.5]]),
-          use_bias=False)
-      model = tf.keras.Sequential([imported, dense])
-    outp = model(inp, training=(mode == tf_estimator.ModeKeys.TRAIN))
-    predictions = dict(
-        output=outp,
-        beta=var_beta.value(),
-        gamma=var_gamma.value(),
-        mean=var_mean.value(),
-        variance=var_variance.value())
-
-    # https://www.tensorflow.org/alpha/guide/migration_guide#using_a_custom_model_fn
-    # recommends model.get_updates_for() instead of model.updates.
-    update_ops = model.get_updates_for(None) + model.get_updates_for(inp)
-
-    loss = None
-    if mode in (tf_estimator.ModeKeys.TRAIN, tf_estimator.ModeKeys.EVAL):
-      loss = tf.compat.v1.losses.mean_squared_error(labels, outp)
-
-    train_op = None
-    if mode == tf_estimator.ModeKeys.TRAIN:
-      optimizer = tf.compat.v1.train.GradientDescentOptimizer(0.1)
-      with tf.control_dependencies(update_ops):
-        train_op = optimizer.minimize(
-            loss,
-            var_list=model.trainable_variables,
-            global_step=tf.compat.v1.train.get_or_create_global_step())
-
-    return tf_estimator.EstimatorSpec(
-        mode=mode, predictions=predictions, loss=loss, train_op=train_op)
-
-  @parameterized.named_parameters(("SavedRaw", False), ("SavedFromKeras", True))
-  def testBatchNormRetraining(self, save_from_keras):
-    """Tests imported batch norm with trainable=True."""
-    export_dir = os.path.join(self.get_temp_dir(), "batch-norm")
-    _save_batch_norm_model(export_dir, save_from_keras=save_from_keras)
-    estimator = tf_estimator.Estimator(
-        model_fn=self._batch_norm_model_fn,
-        params=dict(hub_module=export_dir, train_batch_norm=True))
-
-    # Retrain the imported batch norm layer on a fixed batch of inputs,
-    # which has mean 12.0 and some variance of a less obvious value.
-    # The module learns scale and offset parameters that achieve the
-    # mapping x --> 2*x for the observed mean and variance.
-    x = [[11.], [12.], [13.]]
-    y = [[2 * xi[0]] for xi in x]
-    train_input_fn = tf_compat_v1_estimator.inputs.numpy_input_fn(
-        np.array(x, dtype=np.float32),
-        np.array(y, dtype=np.float32),
-        batch_size=len(x),
-        num_epochs=None,
-        shuffle=False)
-    estimator.train(train_input_fn, steps=100)
-    predictions = next(
-        estimator.predict(train_input_fn, yield_single_examples=False))
-    self.assertAllClose(predictions["mean"], np.array([12.0]))
-    self.assertAllClose(predictions["beta"], np.array([24.0]))
-    self.assertAllClose(predictions["output"], np.array(y))
-
-    # Evaluating the model operates batch norm in inference mode:
-    # - Batch statistics are ignored in favor of aggregated statistics,
-    #   computing x --> 2*x independent of input distribution.
-    # - Update ops are not run, so this doesn't change over time.
-    predict_input_fn = tf_compat_v1_estimator.inputs.numpy_input_fn(
-        np.array([[10.], [20.], [30.]], dtype=np.float32),
-        batch_size=3,
-        num_epochs=100,
-        shuffle=False)
-    for predictions in estimator.predict(
-        predict_input_fn, yield_single_examples=False):
-      self.assertAllClose(predictions["output"], np.array([[20.], [40.],
-                                                           [60.]]))
-    self.assertAllClose(predictions["mean"], np.array([12.0]))
-    self.assertAllClose(predictions["beta"], np.array([24.0]))
-
-  @parameterized.named_parameters(("SavedRaw", False), ("SavedFromKeras", True))
-  def testBatchNormFreezing(self, save_from_keras):
-    """Tests imported batch norm with trainable=False."""
-    export_dir = os.path.join(self.get_temp_dir(), "batch-norm")
-    _save_batch_norm_model(export_dir, save_from_keras=save_from_keras)
-    estimator = tf_estimator.Estimator(
-        model_fn=self._batch_norm_model_fn,
-        params=dict(hub_module=export_dir, train_batch_norm=False))
-    x = [[1.], [2.], [3.]]
-    y = [[2 * xi[0]] for xi in x]
-    input_fn = tf_compat_v1_estimator.inputs.numpy_input_fn(
-        np.array(x, dtype=np.float32),
-        np.array(y, dtype=np.float32),
-        batch_size=len(x),
-        num_epochs=None,
-        shuffle=False)
-    predictions = next(estimator.predict(input_fn, yield_single_examples=False))
-    self.assertAllClose(predictions["beta"], np.array([0.0]))
-    self.assertAllClose(predictions["gamma"], np.array([1.0]))
-    self.assertAllClose(predictions["mean"], np.array([0.0]))
-    self.assertAllClose(predictions["variance"], np.array([1.0]))
-
-    # Training the model to x --> 2*x leaves the batch norm layer entirely
-    # unchanged (both trained beta&gamma and aggregated mean&variance).
-    estimator.train(input_fn, steps=20)
-    predictions = next(estimator.predict(input_fn, yield_single_examples=False))
-    self.assertAllClose(predictions["beta"], np.array([0.0]))
-    self.assertAllClose(predictions["gamma"], np.array([1.0]))
-    self.assertAllClose(predictions["mean"], np.array([0.0]))
-    self.assertAllClose(predictions["variance"], np.array([1.0]))
-    self.assertAllClose(predictions["output"], np.array(y))
-
-  def _output_shape_list_model_fn(self, features, labels, mode, params):
-    inp = tf.keras.layers.Input(shape=(1,), dtype=tf.float32)
-    kwargs = {}
-    if "output_shape" in params:
-      kwargs["output_shape"] = params["output_shape"]
-    imported = hub.KerasLayer(params["hub_module"], **kwargs)
-    outp = imported(inp)
-    model = tf.keras.Model(inp, outp)
-
-    out_list = model(features, training=(mode == tf_estimator.ModeKeys.TRAIN))
-    for j, out in enumerate(out_list):
-      i = j + 1  # Sample shapes count from one.
-      actual_shape = out.shape.as_list()[1:]  # Without batch size.
-      expected_shape = [i] * i if "output_shape" in params else [None] * i
-      self.assertEqual(actual_shape, expected_shape)
-    predictions = {["one", "two", "three"][i]: out_list[i] for i in range(3)}
-    imported.get_config()
-
-    return tf_estimator.EstimatorSpec(
-        mode=mode, predictions=predictions, loss=None, train_op=None)
-
-  @parameterized.named_parameters(("NoOutputShapes", False),
-                                  ("WithOutputShapes", True))
-  def testOutputShapeList(self, pass_output_shapes):
-    export_dir = os.path.join(self.get_temp_dir(), "obscurely-shaped")
-    _save_model_with_obscurely_shaped_list_output(export_dir)
-
-    params = dict(hub_module=export_dir)
-    if pass_output_shapes:
-      params["output_shape"] = [[1], [2, 2], [3, 3, 3]]
-    estimator = tf_estimator.Estimator(
-        model_fn=self._output_shape_list_model_fn, params=params)
-    x = [[1.], [10.]]
-    input_fn = tf_compat_v1_estimator.inputs.numpy_input_fn(
-        np.array(x, dtype=np.float32),
-        batch_size=len(x),
-        num_epochs=None,
-        shuffle=False)
-    predictions = next(estimator.predict(input_fn, yield_single_examples=False))
-    single = predictions["one"]
-    double = predictions["two"]
-    triple = predictions["three"]
-    self.assertAllClose(single, np.array([[1.], [10.]]))
-    self.assertAllClose(
-        double, np.array([[[2., 2.], [2., 2.]], [[20., 20.], [20., 20.]]]))
-    self.assertAllClose(
-        triple,
-        np.array([[[[3., 3., 3.], [3., 3., 3.], [3., 3., 3.]],
-                   [[3., 3., 3.], [3., 3., 3.], [3., 3., 3.]],
-                   [[3., 3., 3.], [3., 3., 3.], [3., 3., 3.]]],
-                  [[[30., 30., 30.], [30., 30., 30.], [30., 30., 30.]],
-                   [[30., 30., 30.], [30., 30., 30.], [30., 30., 30.]],
-                   [[30., 30., 30.], [30., 30., 30.], [30., 30., 30.]]]]))
 
 
 class KerasLayerTest(tf.test.TestCase, parameterized.TestCase):
